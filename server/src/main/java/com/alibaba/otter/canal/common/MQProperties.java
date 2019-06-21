@@ -1,29 +1,39 @@
 package com.alibaba.otter.canal.common;
 
+import java.util.Properties;
+
 /**
- * kafka 配置项
+ * MQ 配置项
  *
  * @author machengyuan 2018-6-11 下午05:30:49
  * @version 1.0.0
  */
 public class MQProperties {
 
-    private String  servers                = "127.0.0.1:6667";
-    private int     retries                = 0;
-    private int     batchSize              = 16384;
-    private int     lingerMs               = 1;
-    private int     maxRequestSize         = 1048576;
-    private long    bufferMemory           = 33554432L;
-    private boolean filterTransactionEntry = true;
-    private String  producerGroup          = "Canal-Producer";
-    private int     canalBatchSize         = 50;
-    private Long    canalGetTimeout        = 100L;
-    private boolean flatMessage            = true;
-    private String  compressionType        = "none";
-    private String  acks                   = "all";
-    private String  aliyunAccessKey        = "";
-    private String  aliyunSecretKey        = "";
-    private boolean transaction            = false;           // 是否开启事务
+    private String     servers                = "127.0.0.1:6667";
+    private int        retries                = 0;
+    private int        batchSize              = 16384;
+    private int        lingerMs               = 1;
+    private int        maxRequestSize         = 1048576;
+    private long       bufferMemory           = 33554432L;
+    private boolean    filterTransactionEntry = true;
+    private String     producerGroup          = "Canal-Producer";
+    private int        canalBatchSize         = 50;
+    private Long       canalGetTimeout        = 100L;
+    private boolean    flatMessage            = true;
+    private String     compressionType        = "none";
+    private String     acks                   = "all";
+    private String     aliyunAccessKey        = "";
+    private String     aliyunSecretKey        = "";
+    private boolean    transaction            = false;           // 是否开启事务
+    private Properties properties             = new Properties();
+    private boolean    enableMessageTrace     = false;
+    private String     accessChannel          = null;
+    private String     customizedTraceTopic   = null;
+    private String     namespace              = "";
+    private boolean    kerberosEnable         = false;           //kafka集群是否启动Kerberos认证
+    private String     kerberosKrb5FilePath   = "";              //启动Kerberos认证时配置为krb5.conf文件的路径
+    private String     kerberosJaasFilePath   = "";              //启动Kerberos认证时配置为jaas.conf文件的路径
 
     public static class CanalDestination {
 
@@ -209,5 +219,98 @@ public class MQProperties {
 
     public void setTransaction(boolean transaction) {
         this.transaction = transaction;
+    }
+
+    public Properties getProperties() {
+        return properties;
+    }
+
+    public void setProperties(Properties properties) {
+        this.properties = properties;
+    }
+
+    public boolean isEnableMessageTrace() {
+        return enableMessageTrace;
+    }
+
+    public void setEnableMessageTrace(boolean enableMessageTrace) {
+        this.enableMessageTrace = enableMessageTrace;
+    }
+
+    public String getAccessChannel() {
+        return accessChannel;
+    }
+
+    public void setAccessChannel(String accessChannel) {
+        this.accessChannel = accessChannel;
+    }
+
+    public String getCustomizedTraceTopic() {
+        return customizedTraceTopic;
+    }
+
+    public void setCustomizedTraceTopic(String customizedTraceTopic) {
+        this.customizedTraceTopic = customizedTraceTopic;
+    }
+
+    public String getNamespace() {
+        return namespace;
+    }
+
+    public void setNamespace(String namespace) {
+        this.namespace = namespace;
+    }
+
+    public boolean isKerberosEnable() {
+        return kerberosEnable;
+    }
+
+    public void setKerberosEnable(boolean kerberosEnable) {
+        this.kerberosEnable = kerberosEnable;
+    }
+
+    public String getKerberosKrb5FilePath() {
+        return kerberosKrb5FilePath;
+    }
+
+    public void setKerberosKrb5FilePath(String kerberosKrb5FilePath) {
+        this.kerberosKrb5FilePath = kerberosKrb5FilePath;
+    }
+
+    public String getKerberosJaasFilePath() {
+        return kerberosJaasFilePath;
+    }
+
+    public void setKerberosJaasFilePath(String kerberosJaasFilePath) {
+        this.kerberosJaasFilePath = kerberosJaasFilePath;
+    }
+
+    @Override public String toString() {
+        return "MQProperties{" +
+            "servers='" + servers + '\'' +
+            ", retries=" + retries +
+            ", batchSize=" + batchSize +
+            ", lingerMs=" + lingerMs +
+            ", maxRequestSize=" + maxRequestSize +
+            ", bufferMemory=" + bufferMemory +
+            ", filterTransactionEntry=" + filterTransactionEntry +
+            ", producerGroup='" + producerGroup + '\'' +
+            ", canalBatchSize=" + canalBatchSize +
+            ", canalGetTimeout=" + canalGetTimeout +
+            ", flatMessage=" + flatMessage +
+            ", compressionType='" + compressionType + '\'' +
+            ", acks='" + acks + '\'' +
+            ", aliyunAccessKey='" + aliyunAccessKey + '\'' +
+            ", aliyunSecretKey='" + aliyunSecretKey + '\'' +
+            ", transaction=" + transaction +
+            ", properties=" + properties +
+            ", enableMessageTrace=" + enableMessageTrace +
+            ", accessChannel='" + accessChannel + '\'' +
+            ", customizedTraceTopic='" + customizedTraceTopic + '\'' +
+            ", namespace='" + namespace + '\'' +
+            ", kerberosEnable='" + kerberosEnable + '\'' +
+            ", kerberosKrb5FilePath='" + kerberosKrb5FilePath + '\'' +
+            ", kerberosJaasFilePath='" + kerberosJaasFilePath + '\'' +
+            '}';
     }
 }

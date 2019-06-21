@@ -7,7 +7,12 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.*;
+import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.function.Function;
 
 import javax.sql.DataSource;
@@ -54,7 +59,6 @@ public class RdbSyncService {
         return columnsTypeCache;
     }
 
-    @SuppressWarnings("unchecked")
     public RdbSyncService(DataSource dataSource, Integer threads, boolean skipDupException){
         this(dataSource, threads, new ConcurrentHashMap<>(), skipDupException);
     }
@@ -98,13 +102,14 @@ public class RdbSyncService {
                 }
             }
             if (toExecute) {
-                List<Future> futures = new ArrayList<>();
+                List<Future<Boolean>> futures = new ArrayList<>();
                 for (int i = 0; i < threads; i++) {
                     int j = i;
                     futures.add(executorThreads[i].submit(() -> {
                         try {
-                            dmlsPartition[j]
-                                .forEach(syncItem -> sync(batchExecutors[j], syncItem.config, syncItem.singleDml));
+                            dmlsPartition[j].forEach(syncItem -> sync(batchExecutors[j],
+                                syncItem.config,
+                                syncItem.singleDml));
                             dmlsPartition[j].clear();
                             batchExecutors[j].commit();
                             return true;
@@ -138,45 +143,53 @@ public class RdbSyncService {
      * @param mappingConfig 配置集合
      * @param dmls 批量 DML
      */
-    public void sync(Map<String, Map<String, MappingConfig>> mappingConfig, List<Dml> dmls) {
+    public void sync(Map<String, Map<String, MappingConfig>> mappingConfig, List<Dml> dmls, Properties envProperties) {
         sync(dmls, dml -> {
             if (dml.getIsDdl() != null && dml.getIsDdl() && StringUtils.isNotEmpty(dml.getSql())) {
                 // DDL
-                columnsTypeCache.remove(dml.getDestination() + "." + dml.getDatabase() + "." + dml.getTable());
-                return false;
+            columnsTypeCache.remove(dml.getDestination() + "." + dml.getDatabase() + "." + dml.getTable());
+            return false;
+        } else {
+            // DML
+            String destination = StringUtils.trimToEmpty(dml.getDestination());
+            String groupId = StringUtils.trimToEmpty(dml.getGroupId());
+            String database = dml.getDatabase();
+            String table = dml.getTable();
+            Map<String, MappingConfig> configMap;
+            if (envProperties != null && !"tcp".equalsIgnoreCase(envProperties.getProperty("canal.conf.mode"))) {
+                configMap = mappingConfig.get(destination + "-" + groupId + "_" + database + "-" + table);
             } else {
-                // DML
-                String destination = StringUtils.trimToEmpty(dml.getDestination());
-                String database = dml.getDatabase();
-                String table = dml.getTable();
-                Map<String, MappingConfig> configMap = mappingConfig.get(destination + "." + database + "." + table);
-
-                if (configMap == null) {
-                    return false;
-                }
-
-                boolean executed = false;
-                for (MappingConfig config : configMap.values()) {
-                    if (config.getConcurrent()) {
-                        List<SingleDml> singleDmls = SingleDml.dml2SingleDmls(dml);
-                        singleDmls.forEach(singleDml -> {
-                            int hash = pkHash(config.getDbMapping(), singleDml.getData());
-                            SyncItem syncItem = new SyncItem(config, singleDml);
-                            dmlsPartition[hash].add(syncItem);
-                        });
-                    } else {
-                        int hash = 0;
-                        List<SingleDml> singleDmls = SingleDml.dml2SingleDmls(dml);
-                        singleDmls.forEach(singleDml -> {
-                            SyncItem syncItem = new SyncItem(config, singleDml);
-                            dmlsPartition[hash].add(syncItem);
-                        });
-                    }
-                    executed = true;
-                }
-                return executed;
+                configMap = mappingConfig.get(destination + "_" + database + "-" + table);
             }
-        });
+
+            if (configMap == null) {
+                return false;
+            }
+
+            if (configMap.values().isEmpty()) {
+                return false;
+            }
+
+            for (MappingConfig config : configMap.values()) {
+                if (config.getConcurrent()) {
+                    List<SingleDml> singleDmls = SingleDml.dml2SingleDmls(dml);
+                    singleDmls.forEach(singleDml -> {
+                        int hash = pkHash(config.getDbMapping(), singleDml.getData());
+                        SyncItem syncItem = new SyncItem(config, singleDml);
+                        dmlsPartition[hash].add(syncItem);
+                    });
+                } else {
+                    int hash = 0;
+                    List<SingleDml> singleDmls = SingleDml.dml2SingleDmls(dml);
+                    singleDmls.forEach(singleDml -> {
+                        SyncItem syncItem = new SyncItem(config, singleDml);
+                        dmlsPartition[hash].add(syncItem);
+                    });
+                }
+            }
+            return true;
+        }
+    }   );
     }
 
     /**
@@ -259,7 +272,7 @@ public class RdbSyncService {
             batchExecutor.execute(insertSql.toString(), values);
         } catch (SQLException e) {
             if (skipDupException
-                && (e.getMessage().contains("Duplicate entry") || e.getMessage().startsWith("ORA-00001: 违反唯一约束条件"))) {
+                && (e.getMessage().contains("Duplicate entry") || e.getMessage().startsWith("ORA-00001:"))) {
                 // ignore
                 // TODO 增加更多关系数据库的主键冲突的错误码
             } else {
@@ -302,7 +315,7 @@ public class RdbSyncService {
         for (String srcColumnName : old.keySet()) {
             List<String> targetColumnNames = new ArrayList<>();
             columnsMap.forEach((targetColumn, srcColumn) -> {
-                if (srcColumnName.toLowerCase().equals(srcColumn.toLowerCase())) {
+                if (srcColumnName.equalsIgnoreCase(srcColumn)) {
                     targetColumnNames.add(targetColumn);
                 }
             });
